@@ -1,0 +1,37 @@
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t dada-dev/testing-client -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run dada-dev/testing-client npm test -- --coverage
+
+after_success:
+  - docker build -t dada-dev/multi-dc ./client
+  - docker build -t dada-dev/multi-dn ./nginx
+  - docker build -t dada-dev/multi-ds ./server
+  - docker build -t dada-dev/multi-dw ./worker
+
+  # Login to Docker CLI
+  - echo "$DOCKER-PASSWORD" | docker login -u "$DOCKER-ID" --password-stdin
+
+  #  Push Images to Docker Hub
+  - docker push dada-dev/multi-dc
+  - docker push dada-dev/multi-dn
+  - docker push dada-dev/multi-ds
+  - docker push dada-dev/multi-dw
+
+deploy:
+  provider: elasticbeanstalk
+  region: us-east-1
+  app: multi-container-app
+  env: MultiContainerApp-env
+  bucket_name: my_bucket_name
+  bucket_path: multi-docker-project
+  on:
+    branch: master
+  access_key_id: $AWS-ACCESS-KEY-ID
+  secret_secret_key:
+    secure: $AWS-SECRET-ACCESS-KEY
